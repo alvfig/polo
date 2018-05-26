@@ -1,6 +1,6 @@
 # polo
 
-A command line interface, CLI, to trade on the [https://poloniex.com Poloniex exchange] through its RestFul API.
+A command line interface, CLI, to trade on the [Poloniex exchange](https://poloniex.com) through its RestFul API.
 
 You can consult your balance and place orders on the exchange.
 
