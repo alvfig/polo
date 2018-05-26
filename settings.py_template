@@ -1,0 +1,6 @@
+ApiUrl = 'https://poloniex.com/tradingApi'
+ApiKey = ''
+Secret = b''
+NonceFactor = 3000000000
+Proxy = None
+#Proxy = { 'https': 'http://user:pass@proxy.localnet:80' }
