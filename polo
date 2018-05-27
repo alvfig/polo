@@ -3,7 +3,11 @@
 #
 # Copyright (c) 2016, 2018 Alvaro Figueiredo
 # alvaro.af@gmail.com
+#
+# pip install requests
 
+# Python 3 compatibility
+# On Python 2: pip install future
 from __future__ import unicode_literals, print_function
 from builtins import bytes, str
 
@@ -14,9 +18,11 @@ import sys
 import time
 import requests
 import urllib
+
 # Python 3
 import urllib3
 
+# Load configuration
 from settings import *
 
 Help = '''\
@@ -42,10 +48,10 @@ def seturlencode():
     global urlencode
     if 2 == sys.version_info.major:
         # Python 2
-        urlencode = lambda p: urllib.urlencode(p)
+        urlencode = urllib.urlencode
     elif 3 == sys.version_info.major:
         # Python 3
-        urlencode = lambda p: urllib.parse.urlencode(p)
+        urlencode = urllib.parse.urlencode
     else:
         raise Exception("Unknown Python version")
 
@@ -61,6 +67,10 @@ def request(params):
 
 def main():
     global Help, NonceFactor
+
+    if sys.argv[1] == 'help':
+        print(Help, end='')
+        return
 
     seturlencode()
 
@@ -81,11 +91,6 @@ def main():
         'tradable': 'returnTradableBalances',
         'transfer': 'transferBalance',
         'close': 'closeMarginPosition'}
-    cmd = sys.argv[1]
-
-    if cmd == 'help':
-        print(Help, end='')
-        return
 
     params = dict()
     params['command'] = commands[sys.argv[1]]
@@ -118,7 +123,6 @@ def main():
         params['account'] = 'all'
 
     response = request(params)
-    #print(json.dumps(response, sort_keys=True, separators=(', ', ': ')))
     print(json.dumps(response, sort_keys=True, separators=(',', ': '), indent=2))
 
 if __name__ == '__main__':
