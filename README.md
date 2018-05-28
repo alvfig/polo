@@ -26,6 +26,11 @@ polo move 40829005273 0.01981 [10]
 polo transfer ETH 10 exchange margin
 ```
 
+## Disclaimers
+1. This software is not endorsed by the Poloniex exchange. It is just an author's study on use of the RestFul API provided by them.
+1. This software is provided as is, without any guarantee of working or profit.
+1. Trading involves high risks. The author can not be responsible for any losses when using this software.
+
 ## Install Python 3
 ## Install Python 2
 
