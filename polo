@@ -6,10 +6,12 @@
 #
 # pip install requests
 
+
 # Python 3 compatibility
 # On Python 2: pip install future
 from __future__ import unicode_literals, print_function
 from builtins import bytes, str
+
 
 import json
 import hashlib
@@ -19,11 +21,6 @@ import time
 import requests
 import urllib
 
-# Python 3
-import urllib3
-
-# Load configuration
-from settings import *
 
 Help = '''\
 Examples:
@@ -44,28 +41,31 @@ polo move 40829005273 0.01981 [10]
 polo transfer ETH 10 exchange margin
 '''
 
-def seturlencode():
-    global urlencode
 
-    if 2 == sys.version_info.major:
-        # Python 2
-        urlencode = urllib.urlencode
-    elif 3 == sys.version_info.major:
-        # Python 3
-        urlencode = urllib.parse.urlencode
-    else:
-        raise Exception("Unknown Python version")
+def encode(data):
+    'Encode the data dictionary'
+    return urlencode(data).encode('utf-8')
 
-def request(params):
-    global Secret, ApiKey, Proxy, ApiUrl, urlencode
 
-    post = urlencode(params).encode('utf-8')
-    sign = hmac.new(Secret, post, hashlib.sha512).hexdigest()
-    headers = {'Sign': sign, 'Key': ApiKey}
-    r = requests.post(ApiUrl, data=params, headers=headers, proxies=Proxy)
-    return json.loads(r.text)
+def sign(coding, secret):
+    'Digitally sign the coding using the API Secret'
+    return hmac.new(secret, coding, hashlib.sha512).hexdigest()
 
-def requestparameters(args):
+
+def request(url, key, sign, data, proxy):
+    'Make a request to the API'
+    headers = {'Key': key, 'Sign': sign}
+    resp = requests.post(url, headers=headers, proxies=proxy, data=data)
+    return json.loads(resp.text)
+
+
+def nonce(factor=1000):
+    'Evaluate the next nonce'
+    return int(factor * time.time())
+
+
+def assemble(args, nonceFactor):
+    'Assemble the data dictionary from a command string'
     global NonceFactor
 
     commands = {\
@@ -85,50 +85,70 @@ def requestparameters(args):
         'tradable': 'returnTradableBalances',
         'transfer': 'transferBalance',
         'close': 'closeMarginPosition'}
-    params = dict()
-    params['command'] = commands[args[1]]
-    params['nonce'] = int(time.time()*NonceFactor)
-    params['account'] = 'margin'
-    params['lendingRate'] = 0.004
-    params['currencyPair'] = 'all'
-    if params['command'] in ('cancelOrder', 'returnOrderTrades', 'moveOrder'):
-        params['orderNumber'] = args[2]
-        if params['command'] == 'moveOrder':
-            params['rate'] = float(args[3])
+    data = {}
+    data['command'] = commands[args[1]]
+    data['nonce'] = nonce(nonceFactor)
+    data['account'] = 'margin'
+    data['lendingRate'] = 0.004
+    data['currencyPair'] = 'all'
+    if data['command'] in ('cancelOrder', 'returnOrderTrades', 'moveOrder'):
+        data['orderNumber'] = args[2]
+        if data['command'] == 'moveOrder':
+            data['rate'] = float(args[3])
             if 4 < len(args):
-                params['amount'] = float(args[4])
-    elif params['command'] == 'transferBalance':
-        params['currency'] = args[2].upper()
-        params['amount'] = float(args[3])
-        params['fromAccount'] = args[4]
-        params['toAccount'] = args[5]
+                data['amount'] = float(args[4])
+    elif data['command'] == 'transferBalance':
+        data['currency'] = args[2].upper()
+        data['amount'] = float(args[3])
+        data['fromAccount'] = args[4]
+        data['toAccount'] = args[5]
     elif 2 < len(args):
         currencyPair = args[2]
         if currencyPair != 'all':
             currencyPair = currencyPair.upper()
             if '_' not in currencyPair:
                 currencyPair = 'BTC_' + currencyPair
-        params['currencyPair'] = currencyPair
-    if params['command'] in ('buy', 'marginBuy', 'sell', 'marginSell'):
-        params['rate'] = float(args[3])
-        params['amount'] = float(args[4])
-    elif params['command'] == 'returnAvailableAccountBalances':
-        params['account'] = 'all'
-    return params
+        data['currencyPair'] = currencyPair
+    if data['command'] in ('buy', 'marginBuy', 'sell', 'marginSell'):
+        data['rate'] = float(args[3])
+        data['amount'] = float(args[4])
+    elif data['command'] == 'returnAvailableAccountBalances':
+        data['account'] = 'all'
+    return data
+
 
 def main(args):
+    'Drive the execution if it is called as a program'
+    import settings
     global Help
 
     if args[1] == 'help':
         print(Help, end='')
         return
-    params = requestparameters(args)
-    print(params)
-    response = request(params)
+    data = assemble(args, settings.NonceFactor)
+    coding = encode(data)
+    sign_ = sign(coding, settings.Secret)
+    response = request(settings.ApiUrl, settings.ApiKey, sign_, data, settings.Proxy)
     print(json.dumps(response, sort_keys=True,
         separators=(',', ': '), indent=2))
 
-seturlencode()
+
+def _seturlencode():
+    'Set which urllib.urlencode function to use depending on version of Python'
+    if 2 == sys.version_info.major:
+        # Python 2
+        urlencode = urllib.urlencode
+    elif 3 == sys.version_info.major:
+        # Python 3
+        import urllib3
+        urlencode = urllib.parse.urlencode
+    else:
+        raise Exception("Unknown Python version")
+    return urlencode
+
+
+urlencode = _seturlencode()
+
 
 if __name__ == '__main__':
     main(sys.argv)
