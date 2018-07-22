@@ -1,5 +1,6 @@
 __pycache__
 pnum
 polo.org
+polo.py
 settings.py
-settings.pyc
+*.pyc

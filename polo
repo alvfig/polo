@@ -65,7 +65,7 @@ def request(params):
     r = requests.post(ApiUrl, data=params, headers=headers, proxies=Proxy)
     return json.loads(r.text)
 
-def requestparameters():
+def requestparameters(args):
     global NonceFactor
 
     commands = {\
@@ -86,47 +86,49 @@ def requestparameters():
         'transfer': 'transferBalance',
         'close': 'closeMarginPosition'}
     params = dict()
-    params['command'] = commands[sys.argv[1]]
+    params['command'] = commands[args[1]]
     params['nonce'] = int(time.time()*NonceFactor)
     params['account'] = 'margin'
     params['lendingRate'] = 0.004
     params['currencyPair'] = 'all'
     if params['command'] in ('cancelOrder', 'returnOrderTrades', 'moveOrder'):
-        params['orderNumber'] = sys.argv[2]
+        params['orderNumber'] = args[2]
         if params['command'] == 'moveOrder':
-            params['rate'] = float(sys.argv[3])
-            if 4 < len(sys.argv):
-                params['amount'] = float(sys.argv[4])
+            params['rate'] = float(args[3])
+            if 4 < len(args):
+                params['amount'] = float(args[4])
     elif params['command'] == 'transferBalance':
-        params['currency'] = sys.argv[2].upper()
-        params['amount'] = float(sys.argv[3])
-        params['fromAccount'] = sys.argv[4]
-        params['toAccount'] = sys.argv[5]
-    elif 2 < len(sys.argv):
-        currencyPair = sys.argv[2]
+        params['currency'] = args[2].upper()
+        params['amount'] = float(args[3])
+        params['fromAccount'] = args[4]
+        params['toAccount'] = args[5]
+    elif 2 < len(args):
+        currencyPair = args[2]
         if currencyPair != 'all':
             currencyPair = currencyPair.upper()
             if '_' not in currencyPair:
                 currencyPair = 'BTC_' + currencyPair
         params['currencyPair'] = currencyPair
     if params['command'] in ('buy', 'marginBuy', 'sell', 'marginSell'):
-        params['rate'] = float(sys.argv[3])
-        params['amount'] = float(sys.argv[4])
+        params['rate'] = float(args[3])
+        params['amount'] = float(args[4])
     elif params['command'] == 'returnAvailableAccountBalances':
         params['account'] = 'all'
     return params
 
-def main():
+def main(args):
     global Help
 
-    if sys.argv[1] == 'help':
+    if args[1] == 'help':
         print(Help, end='')
         return
-    seturlencode()
-    params = requestparameters()
+    params = requestparameters(args)
+    print(params)
     response = request(params)
     print(json.dumps(response, sort_keys=True,
         separators=(',', ': '), indent=2))
 
+seturlencode()
+
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
