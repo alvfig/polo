@@ -1,4 +1,3 @@
-ApiUrl = 'https://poloniex.com/tradingApi'
 ApiKey = ''
 Secret = b''
 NonceFactor = 3000000000

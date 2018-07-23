@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# polo - CLI to trade on Poloniex by its RESTful API
+# polo - CLI and library to trade on Poloniex by its RESTful API
 #
 # Copyright (c) 2016, 2018 Alvaro Figueiredo
 # alvaro.af@gmail.com
@@ -22,7 +22,8 @@ import requests
 import urllib
 
 
-Help = '''\
+APIURL = 'https://poloniex.com/tradingApi'
+HELP = '''\
 Examples:
 
 polo balance
@@ -42,33 +43,15 @@ polo transfer ETH 10 exchange margin
 '''
 
 
-def encode(data):
-    'Encode the data dictionary'
-    return urlencode(data).encode('utf-8')
-
-
-def sign(coding, secret):
-    'Digitally sign the coding using the API Secret'
-    return hmac.new(secret, coding, hashlib.sha512).hexdigest()
-
-
-def request(url, key, sign, data, proxy):
-    'Make a request to the API'
-    headers = {'Key': key, 'Sign': sign}
-    resp = requests.post(url, headers=headers, proxies=proxy, data=data)
-    return json.loads(resp.text)
-
-
-def nonce(factor=1000):
-    'Evaluate the next nonce'
+def nonce(factor=3000000000):
+    """Evaluate the next nonce"""
     return int(factor * time.time())
 
 
-def assemble(args, nonceFactor):
-    'Assemble the data dictionary from a command string'
-    global NonceFactor
+def assemble(args, nonce_=None):
+    """Assemble the data dictionary from a command string"""
 
-    commands = {\
+    commands = {
         'b0': 'returnBalances',
         'b1': 'returnCompleteBalances',
         'balance': 'returnAvailableAccountBalances',
@@ -84,10 +67,13 @@ def assemble(args, nonceFactor):
         'trades': 'returnOrderTrades',
         'tradable': 'returnTradableBalances',
         'transfer': 'transferBalance',
-        'close': 'closeMarginPosition'}
+        'close': 'closeMarginPosition',
+    }
+    if isinstance(args, type('')):
+        args = args.split()
     data = {}
     data['command'] = commands[args[1]]
-    data['nonce'] = nonce(nonceFactor)
+    data['nonce'] = nonce_ is not None and nonce_ or nonce()
     data['account'] = 'margin'
     data['lendingRate'] = 0.004
     data['currencyPair'] = 'all'
@@ -117,24 +103,44 @@ def assemble(args, nonceFactor):
     return data
 
 
+def encode(data):
+    """Encode the data dictionary"""
+    return urlencode(data).encode('utf-8')
+
+
+def sign(secret, coding):
+    """Digitally sign the coding using the API Secret"""
+    return hmac.new(secret, coding, hashlib.sha512).hexdigest()
+
+
+def request(apikey, sign_, data, proxy=None):
+    """Make a request to the API"""
+    global APIURL
+    headers = {'Key': apikey, 'Sign': sign_}
+    resp = requests.post(APIURL, headers=headers, proxies=proxy, data=data)
+    return json.loads(resp.text)
+
+
 def main(args):
-    'Drive the execution if it is called as a program'
+    """Drive the execution if it is called as a program"""
     import settings
-    global Help
+    global HELP
 
     if args[1] == 'help':
-        print(Help, end='')
+        print(HELP, end='')
         return
-    data = assemble(args, settings.NonceFactor)
+    nonce_ = nonce(settings.NonceFactor)
+    data = assemble(args, nonce_)
     coding = encode(data)
-    sign_ = sign(coding, settings.Secret)
-    response = request(settings.ApiUrl, settings.ApiKey, sign_, data, settings.Proxy)
-    print(json.dumps(response, sort_keys=True,
+    sign_ = sign(settings.Secret, coding)
+    response = request(settings.ApiKey, sign_, data, settings.Proxy)
+    print(
+        json.dumps(response, sort_keys=True,
         separators=(',', ': '), indent=2))
 
 
-def _seturlencode():
-    'Set which urllib.urlencode function to use depending on version of Python'
+def _get_urlencode():
+    # Set which urllib.urlencode function to use depending on version of Python
     if 2 == sys.version_info.major:
         # Python 2
         urlencode = urllib.urlencode
@@ -147,7 +153,7 @@ def _seturlencode():
     return urlencode
 
 
-urlencode = _seturlencode()
+urlencode = _get_urlencode()
 
 
 if __name__ == '__main__':
