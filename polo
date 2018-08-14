@@ -1,14 +1,21 @@
 #!/usr/bin/env python
-# polo - CLI and library to trade on Poloniex by its RESTful API
-#
-# Copyright (c) 2016, 2018 Alvaro Figueiredo
-# alvaro.af@gmail.com
-#
-# pip install requests
+"""polo
+
+CLI and library to trade on the Poloniex exchange by its RESTful API
+https://poloniex.com
+
+Copyright (c) 2016, 2018 Alvaro Figueiredo
+alvaro.af@gmail.com
+
+On Python 3:
+pip install requests
+
+On Python 2:
+pip install requests
+pip install future
+"""
 
 
-# Python 3 compatibility
-# On Python 2: pip install future
 from __future__ import unicode_literals, print_function
 from builtins import bytes, str
 
@@ -22,7 +29,8 @@ import requests
 import urllib
 
 
-APIURL = 'https://poloniex.com/tradingApi'
+_APIURL = 'https://poloniex.com/tradingApi'
+_LENDINGRATE = 0.004
 HELP = '''\
 Examples:
 
@@ -48,58 +56,128 @@ def nonce(factor=3000000000):
     return int(factor * time.time())
 
 
+def _currency_pair(args):
+    # Parse the currency pair from args
+    if 2 < len(args):
+        curr_pair = args[2]
+        if curr_pair != 'all':
+            curr_pair = curr_pair.upper()
+            if '_' not in curr_pair:
+                curr_pair = 'BTC_' + curr_pair
+    else:
+        curr_pair = 'all'
+    return curr_pair
+
+
+def _assemble_balance(data):
+    data['command'] = 'returnAvailableAccountBalances'
+    data['account'] = 'all'
+
+
+def _assemble_summary(data):
+    data['command'] = 'returnMarginAccountSummary'
+
+
+def _assemble_position(data, args):
+    data['command'] = 'getMarginPosition'
+    data['currencyPair'] = _currency_pair(args)
+
+
+def _assemble_cancel(data, args):
+    data['command'] = 'cancelOrder'
+    data['orderNumber'] = args[2]
+
+
+def _assemble_trades(data, args):
+    data['command'] = 'returnOrderTrades'
+    data['orderNumber'] = args[2]
+
+
+def _assemble_move(data, args):
+    data['command'] = 'moveOrder'
+    data['orderNumber'] = args[2]
+    data['rate'] = float(args[3])
+    if 4 < len(args):
+        data['amount'] = float(args[4])
+
+
+def _assemble_tradable(data):
+    data['command'] = 'returnTradableBalances'
+
+
+def _assemble_orders(data, args):
+    data['command'] = 'returnOpenOrders'
+    data['currencyPair'] = _currency_pair(args)
+
+
+def _assemble_close(data, args):
+    data['command'] = 'closeMarginPosition'
+    data['currencyPair'] = _currency_pair(args)
+
+def _assemble_long(data, args):
+    data['command'] = 'marginBuy'
+    data['currencyPair'] = _currency_pair(args)
+    data['rate'] = float(args[3])
+    data['amount'] = float(args[4])
+    data['lendingRate'] = _LENDINGRATE
+
+def _assemble_short(data, args):
+    data['command'] = 'marginSell'
+    data['currencyPair'] = _currency_pair(args)
+    data['rate'] = float(args[3])
+    data['amount'] = float(args[4])
+    data['lendingRate'] = _LENDINGRATE
+
+
+def _assemble_buy(data, args):
+    data['command'] = 'buy'
+    data['currencyPair'] = _currency_pair(args)
+    data['rate'] = float(args[3])
+    data['amount'] = float(args[4])
+
+
+def _assemble_sell(data, args):
+    data['command'] = 'sell'
+    data['currencyPair'] = _currency_pair(args)
+    data['rate'] = float(args[3])
+    data['amount'] = float(args[4])
+
+
+def _assemble_transfer(data, args):
+    data['command'] = 'transferBalance'
+    data['currency'] = args[2].upper
+    data['amount'] = float(args[3])
+    data['fromAccount'] = args[4]
+    data['toAccount'] = args[5]
+
+
 def assemble(args, nonce_=None):
     """Assemble the data dictionary from a command string"""
-
+    data = {}
     commands = {
         'b0': 'returnBalances',
         'b1': 'returnCompleteBalances',
-        'balance': 'returnAvailableAccountBalances',
-        'summary': 'returnMarginAccountSummary',
-        'position': 'getMarginPosition',
-        'buy': 'buy',
-        'long': 'marginBuy',
-        'sell': 'sell',
-        'short': 'marginSell',
-        'move': 'moveOrder',
-        'orders': 'returnOpenOrders',
-        'cancel': 'cancelOrder',
-        'trades': 'returnOrderTrades',
-        'tradable': 'returnTradableBalances',
-        'transfer': 'transferBalance',
-        'close': 'closeMarginPosition',
+        'balance': (_assemble_balance, (data,)),
+        'summary': (_assemble_summary, (data,)),
+        'position': (_assemble_position, (data, args)),
+        'buy': (_assemble_buy, (data, args)),
+        'long': (_assemble_long, (data, args)),
+        'sell': (_assemble_sell, (data, args)),
+        'short': (_assemble_short, (data, args)),
+        'move': (_assemble_move, (data, args)),
+        'orders': (_assemble_orders, (data, args)),
+        'cancel': (_assemble_cancel, (data, args)),
+        'trades': (_assemble_trades, (data, args)),
+        'tradable': (_assemble_tradable, (data,)),
+        'transfer': (_assemble_transfer, (data, args)),
+        'close': (_assemble_close, (data, args)),
     }
-    if isinstance(args, type('')):
+    if isinstance(args, str):
         args = args.split()
-    data = {}
-    data['command'] = commands[args[1]]
-    data['nonce'] = nonce_ is not None and nonce_ or nonce()
-    data['account'] = 'margin'
-    data['lendingRate'] = 0.004
-    data['currencyPair'] = 'all'
-    if data['command'] in ('cancelOrder', 'returnOrderTrades', 'moveOrder'):
-        data['orderNumber'] = args[2]
-        if data['command'] == 'moveOrder':
-            data['rate'] = float(args[3])
-            if 4 < len(args):
-                data['amount'] = float(args[4])
-    elif data['command'] == 'transferBalance':
-        data['currency'] = args[2].upper()
-        data['amount'] = float(args[3])
-        data['fromAccount'] = args[4]
-        data['toAccount'] = args[5]
-    elif 2 < len(args):
-        currencyPair = args[2]
-        if currencyPair != 'all':
-            currencyPair = currencyPair.upper()
-            if '_' not in currencyPair:
-                currencyPair = 'BTC_' + currencyPair
-        data['currencyPair'] = currencyPair
-    if data['command'] in ('buy', 'marginBuy', 'sell', 'marginSell'):
-        data['rate'] = float(args[3])
-        data['amount'] = float(args[4])
-    elif data['command'] == 'returnAvailableAccountBalances':
-        data['account'] = 'all'
+    data['nonce'] = nonce_ if nonce_ is not None else nonce()
+    #data['account'] = 'margin'
+    routine, pargs = commands[args[1]]
+    routine(*pargs)
     return data
 
 
@@ -115,17 +193,14 @@ def sign(secret, coding):
 
 def request(apikey, sign_, data, proxy=None):
     """Make a request to the API"""
-    global APIURL
     headers = {'Key': apikey, 'Sign': sign_}
-    resp = requests.post(APIURL, headers=headers, proxies=proxy, data=data)
+    resp = requests.post(_APIURL, headers=headers, proxies=proxy, data=data)
     return json.loads(resp.text)
 
 
 def main(args):
     """Drive the execution if it is called as a program"""
     import settings
-    global HELP
-
     if args[1] == 'help':
         print(HELP, end='')
         return
@@ -135,8 +210,11 @@ def main(args):
     sign_ = sign(settings.Secret, coding)
     response = request(settings.ApiKey, sign_, data, settings.Proxy)
     print(
-        json.dumps(response, sort_keys=True,
-        separators=(',', ': '), indent=2))
+        json.dumps(
+            response, sort_keys=True,
+            separators=(',', ': '), indent=2
+        )
+    )
 
 
 def _get_urlencode():
