@@ -17,7 +17,16 @@ pip install future
 
 
 from __future__ import unicode_literals, print_function
-from builtins import bytes, str
+from builtins import str
+
+
+try:
+    # Python 2
+    from urllib import urlencode
+except ImportError:
+    # Python 3
+    import urllib3
+    from urllib.parse import urlencode
 
 
 import json
@@ -26,7 +35,6 @@ import hmac
 import sys
 import time
 import requests
-import urllib
 
 
 _APIURL = 'https://poloniex.com/tradingApi'
@@ -215,23 +223,6 @@ def main(args):
             separators=(',', ': '), indent=2
         )
     )
-
-
-def _get_urlencode():
-    # Set which urllib.urlencode function to use depending on version of Python
-    if 2 == sys.version_info.major:
-        # Python 2
-        urlencode = urllib.urlencode
-    elif 3 == sys.version_info.major:
-        # Python 3
-        import urllib3
-        urlencode = urllib.parse.urlencode
-    else:
-        raise Exception("Unknown Python version")
-    return urlencode
-
-
-urlencode = _get_urlencode()
 
 
 if __name__ == '__main__':
