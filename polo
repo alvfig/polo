@@ -67,35 +67,15 @@ def nonce(factor=3000000000):
 class RequestData(dict):
     """Assemble the data to make a request to the API"""
 
-    commands = {
-        'b0': 'returnBalances',
-        'b1': 'returnCompleteBalances',
-        'balance': '_assemble_balance',
-        'summary': '_assemble_summary',
-        'position': '_assemble_position',
-        'buy': '_assemble_buy',
-        'long': '_assemble_long',
-        'sell': '_assemble_sell',
-        'short': '_assemble_short',
-        'move': '_assemble_move',
-        'orders': '_assemble_orders',
-        'cancel': '_assemble_cancel',
-        'trades': '_assemble_trades',
-        'tradable': '_assemble_tradable',
-        'transfer': '_assemble_transfer',
-        'close': '_assemble_close',
-    }
-
     def __init__(self, args, nonce_=None):
         super(RequestData, self).__init__()
         if isinstance(args, str):
             args = args.split()
+        if not isinstance(args, list):
+            raise TypeError('args must be a list or a string')
         self.args = args
-        super(RequestData, self).__setitem__(
-            'nonce', nonce_ if nonce_ is not None else nonce()
-        )
-        #super(RequestData, self).__setitem__('account', 'margin')
-        getattr(self, RequestData.commands[self.args[1]])()
+        self['nonce'] = nonce_ if nonce_ is not None else nonce()
+        getattr(self, '_assemble_' + self.args[1])()
 
     @staticmethod
     def _currency_pair(args):
@@ -111,94 +91,71 @@ class RequestData(dict):
         return curr_pair
 
     def _assemble_balance(self):
-        super(RequestData, self).__setitem__(
-            'command', 'returnAvailableAccountBalances'
-        )
-        super(RequestData, self).__setitem__('account', 'all')
+        self['command'] = 'returnAvailableAccountBalances'
+        self['account'] = 'all'
 
     def _assemble_summary(self):
-        super(RequestData, self).__setitem__(
-            'command', 'returnMarginAccountSummary'
-        )
+        self['command'] = 'returnMarginAccountSummary'
 
     def _assemble_position(self):
-        super(RequestData, self).__setitem__('command', 'getMarginPosition')
-        super(RequestData, self).__setitem__(
-            'currencyPair', self._currency_pair(self.args)
-        )
+        self['command'] = 'getMarginPosition'
+        self['currencyPair'] = self._currency_pair(self.args)
+
+    def _order_helper(self):
+        self['currencyPair'] = self._currency_pair(self.args)
+        self['rate'] = float(self.args[3])
+        self['amount'] = float(self.args[4])
 
     def _assemble_buy(self):
-        super(RequestData, self).__setitem__('command', 'buy')
-        super(RequestData, self).__setitem__(
-            'currencyPair', self._currency_pair(self.args)
-        )
-        super(RequestData, self).__setitem__('rate', float(self.args[3]))
-        super(RequestData, self).__setitem__('amount', float(self.args[4]))
+        self['command'] = 'buy'
+        self._order_helper()
 
     def _assemble_long(self):
-        super(RequestData, self).__setitem__('command', 'marginBuy')
-        super(RequestData, self).__setitem__(
-            'currencyPair', self._currency_pair(self.args)
-        )
-        super(RequestData, self).__setitem__('rate', float(self.args[3]))
-        super(RequestData, self).__setitem__('amount', float(self.args[4]))
-        super(RequestData, self).__setitem__('lendingRate', _LENDINGRATE)
+        self['command'] = 'marginBuy'
+        self['lendingRate'] = _LENDINGRATE
+        self._order_helper()
 
     def _assemble_sell(self):
-        super(RequestData, self).__setitem__('command', 'sell')
-        super(RequestData, self).__setitem__(
-            'currencyPair', self._currency_pair(self.args)
-        )
-        super(RequestData, self).__setitem__('rate', float(self.args[3]))
-        super(RequestData, self).__setitem__('amount', float(self.args[4]))
+        self['command'] = 'sell'
+        self._order_helper()
 
     def _assemble_short(self):
-        super(RequestData, self).__setitem__('command', 'marginSell')
-        super(RequestData, self).__setitem__(
-            'currencyPair', self._currency_pair(self.args)
-        )
-        super(RequestData, self).__setitem__('rate', float(self.args[3]))
-        super(RequestData, self).__setitem__('amount', float(self.args[4]))
-        super(RequestData, self).__setitem__('lendingRate', _LENDINGRATE)
+        self['command'] = 'marginSell'
+        self['lendingRate'] = _LENDINGRATE
+        self._order_helper()
 
     def _assemble_move(self):
-        super(RequestData, self).__setitem__('command', 'moveOrder')
-        super(RequestData, self).__setitem__('orderNumber', self.args[2])
-        super(RequestData, self).__setitem__('rate', float(self.args[3]))
+        self['command'] = 'moveOrder'
+        self['orderNumber'] = self.args[2]
+        self['rate'] = float(self.args[3])
         if 4 < len(self.args):
-            super(RequestData, self).__setitem__('amount', float(self.args[4]))
+            self['amount'] = float(self.args[4])
 
     def _assemble_orders(self):
-        super(RequestData, self).__setitem__('command', 'returnOpenOrders')
-        super(RequestData, self).__setitem__(
-            'currencyPair', self._currency_pair(self.args)
-        )
+        self['command'] = 'returnOpenOrders'
+        self['currencyPair'] = self._currency_pair(self.args)
 
     def _assemble_cancel(self):
-        super(RequestData, self).__setitem__('command', 'cancelOrder')
-        super(RequestData, self).__setitem__('orderNumber', self.args[2])
+        self['command'] = 'cancelOrder'
+        self['orderNumber'] = self.args[2]
 
     def _assemble_trades(self):
-        super(RequestData, self).__setitem__('command', 'returnOrderTrades')
-        super(RequestData, self).__setitem__('orderNumber', self.args[2])
+        self['command'] = 'returnOrderTrades'
+        self['orderNumber'] = self.args[2]
 
     def _assemble_tradable(self):
-        super(RequestData, self).__setitem__(
-            'command', 'returnTradableBalances'
-        )
+        self['command'] = 'returnTradableBalances'
 
     def _assemble_transfer(self):
-        super(RequestData, self).__setitem__('command', 'transferBalance')
-        super(RequestData, self).__setitem__('currency', self.args[2].upper)
-        super(RequestData, self).__setitem__('amount', float(self.args[3]))
-        super(RequestData, self).__setitem__('fromAccount', self.args[4])
-        super(RequestData, self).__setitem__('toAccount', self.args[5])
+        self['command'] = 'transferBalance'
+        self['currency'] = self.args[2].upper
+        self['amount'] = float(self.args[3])
+        self['fromAccount'] = self.args[4]
+        self['toAccount'] = self.args[5]
 
     def _assemble_close(self):
-        super(RequestData, self).__setitem__('command', 'closeMarginPosition')
-        super(RequestData, self).__setitem__(
-            'currencyPair', self._currency_pair(self.args)
-        )
+        self['command'] = 'closeMarginPosition'
+        self['currencyPair'] = self._currency_pair(self.args)
 
 
 def encode(data):
@@ -231,8 +188,10 @@ def main(args):
     response = request(settings.ApiKey, sign_, data, settings.Proxy)
     print(
         json.dumps(
-            response, sort_keys=True,
-            separators=(',', ': '), indent=2
+            response,
+            sort_keys=True,
+            separators=(',', ': '),
+            indent=2
         )
     )
 
