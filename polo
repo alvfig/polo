@@ -75,7 +75,9 @@ class RequestData(dict):
             raise TypeError('args must be a list or a string')
         self.args = args
         self['nonce'] = nonce_ if nonce_ is not None else nonce()
-        getattr(self, '_assemble_' + self.args[1])()
+        assemble_method_name = '_assemble_' + self.args[1]
+        assemble_method = getattr(RequestData, assemble_method_name)
+        assemble_method(self)
 
     def _currency_pair_helper(self):
         # Parse the currency pair from args
