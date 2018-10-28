@@ -77,18 +77,17 @@ class RequestData(dict):
         self['nonce'] = nonce_ if nonce_ is not None else nonce()
         getattr(self, '_assemble_' + self.args[1])()
 
-    @staticmethod
-    def _currency_pair(args):
+    def _currency_pair_helper(self):
         # Parse the currency pair from args
-        if 2 < len(args):
-            curr_pair = args[2]
+        if 2 < len(self.args):
+            curr_pair = self.args[2]
             if curr_pair != 'all':
                 curr_pair = curr_pair.upper()
                 if '_' not in curr_pair:
                     curr_pair = 'BTC_' + curr_pair
         else:
             curr_pair = 'all'
-        return curr_pair
+        self['currencyPair'] = curr_pair
 
     def _assemble_balance(self):
         self['command'] = 'returnAvailableAccountBalances'
@@ -99,12 +98,12 @@ class RequestData(dict):
 
     def _assemble_position(self):
         self['command'] = 'getMarginPosition'
-        self['currencyPair'] = self._currency_pair(self.args)
+        self._currency_pair_helper()
 
     def _order_helper(self):
-        self['currencyPair'] = self._currency_pair(self.args)
         self['rate'] = float(self.args[3])
         self['amount'] = float(self.args[4])
+        self._currency_pair_helper()
 
     def _assemble_buy(self):
         self['command'] = 'buy'
@@ -133,7 +132,7 @@ class RequestData(dict):
 
     def _assemble_orders(self):
         self['command'] = 'returnOpenOrders'
-        self['currencyPair'] = self._currency_pair(self.args)
+        self._currency_pair_helper()
 
     def _assemble_cancel(self):
         self['command'] = 'cancelOrder'
@@ -155,7 +154,7 @@ class RequestData(dict):
 
     def _assemble_close(self):
         self['command'] = 'closeMarginPosition'
-        self['currencyPair'] = self._currency_pair(self.args)
+        self._currency_pair_helper()
 
 
 def encode(data):
