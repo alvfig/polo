@@ -76,7 +76,10 @@ class RequestData(dict):
         self.args = args
         self['nonce'] = nonce_ if nonce_ is not None else nonce()
         assemble_method_name = '_assemble_' + self.args[1]
-        assemble_method = getattr(RequestData, assemble_method_name)
+        try:
+            assemble_method = getattr(RequestData, assemble_method_name)
+        except AttributeError:
+            raise NameError('invalid command: ' + self.args[1]) from None
         assemble_method(self)
 
     def _currency_pair_helper(self):
